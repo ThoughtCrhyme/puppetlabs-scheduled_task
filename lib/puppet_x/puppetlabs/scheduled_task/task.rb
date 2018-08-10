@@ -108,18 +108,20 @@ class Task
   # otherwise a new task is created by that name (but not yet saved to the system).
   #
   def initialize(task_name, compatibility_level = nil)
+    require 'pry'; binding.pry;
     raise TypeError unless task_name.is_a?(String)
 
     @full_task_path = ROOT_FOLDER + task_name
     # definition populated when task exists, otherwise new
     @task, @definition = self.class.task(@full_task_path)
     @task_password = nil
+    task_userid = @definition.Principal.UserId || ''
 
     if compatibility_level == :v1_compatibility
       self.compatibility = TASK_COMPATIBILITY::TASK_COMPATIBILITY_V1
     end
 
-    set_account_information('',nil)
+    set_account_information(task_userid,nil)
   end
 
   V1_COMPATIBILITY = [
@@ -209,7 +211,7 @@ class Task
       when TASK_LOGON_TYPE::TASK_LOGON_PASSWORD,
         TASK_LOGON_TYPE::TASK_LOGON_INTERACTIVE_TOKEN_OR_PASSWORD
         task_user = @definition.Principal.UserId
-        task_password = @password
+        task_password = @task_password
     end
 
     saved = task_folder.RegisterTaskDefinition(
@@ -234,6 +236,7 @@ class Task
   # properly registered and visible through the MMC snap-in / schtasks.exe
   #
   def set_account_information(user, password)
+    require 'pry'; binding.pry;
     @task_password = password
 
     if (user.nil? || user == "")
@@ -360,6 +363,7 @@ class Task
   private
   # :stopdoc:
   def self.task_service
+    require 'pry'; binding.pry;
     service = WIN32OLE.new('Schedule.Service')
     service.connect()
 
@@ -379,6 +383,7 @@ class Task
   def self.task(task_path)
     raise TypeError unless task_path.is_a?(String)
     service = task_service
+    require 'pry'; binding.pry;
     begin
       task_folder = service.GetFolder(folder_path_from_task_path(task_path))
       # https://msdn.microsoft.com/en-us/library/windows/desktop/aa381363(v=vs.85).aspx

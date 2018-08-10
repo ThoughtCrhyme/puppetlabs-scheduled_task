@@ -4,6 +4,14 @@ host = find_only_one("default")
 
 describe "Should create a scheduled task", :node => host do
 
+  before(:all) do
+    @username, @password = add_test_user(host)
+  end
+
+  after(:all) do
+    remove_test_user(host, @username)
+  end
+
   before(:each) do
     @taskname = "pl#{rand(999999).to_i}"
   end
@@ -66,5 +74,65 @@ describe "Should create a scheduled task", :node => host do
     # Verify the task exists
     query_cmd = "schtasks.exe /query /v /fo list /tn #{@taskname}"
     on(host, query_cmd)
+  end
+
+  it "Should create a task with a username and password" do
+    pp = <<-MANIFEST
+    scheduled_task {'#{@taskname}':
+      ensure        => present,
+      compatibility => 1,
+      command       => 'c:\\\\windows\\\\system32\\\\notepad.exe',
+      arguments     => "foo bar baz",
+      working_dir   => 'c:\\\\windows',
+      user          => '#{@username}',
+      password      => '#{@password}',
+      trigger       => {
+        schedule   => daily,
+        start_time => '12:00',
+      },
+      provider      => 'taskscheduler_api2'
+    }
+    MANIFEST
+    execute_manifest(pp, :catch_failures => true)
+
+    # Ensure it's idempotent
+    execute_manifest(pp, :catch_changes  => true)
+
+    # Verify the task exists
+    query_cmd = "schtasks.exe /query /v /fo list /tn #{@taskname}"
+    result = on(host, query_cmd)
+
+    # Verify the task is running under the correct user
+    result.stdout.match?(@username)
+  end
+
+  it "Should create a task with a username and password" do
+    pp = <<-MANIFEST
+    scheduled_task {'#{@taskname}':
+      ensure        => present,
+      compatibility => 1,
+      command       => 'c:\\\\windows\\\\system32\\\\notepad.exe',
+      arguments     => "foo bar baz",
+      working_dir   => 'c:\\\\windows',
+      user          => '#{@username}',
+      password      => '#{@password}',
+      trigger       => {
+        schedule   => daily,
+        start_time => '12:00',
+      },
+      provider      => 'win32_taskscheduler'
+    }
+    MANIFEST
+    execute_manifest(pp, :catch_failures => true)
+
+    # Ensure it's idempotent
+    execute_manifest(pp, :catch_changes  => true)
+
+    # Verify the task exists
+    query_cmd = "schtasks.exe /query /v /fo list /tn #{@taskname}"
+    result = on(host, query_cmd)
+
+    # Verify the task is running under the correct user
+    result.stdout.match?(@username)
   end
 end
